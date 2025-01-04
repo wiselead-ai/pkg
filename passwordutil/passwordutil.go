@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"io"
+	"log"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -72,6 +73,7 @@ func Verify(password string, hash []byte, opts ...Option) (bool, error) {
 	}
 
 	if uint32(len(hash)) < p.saltLength+p.keyLength {
+		log.Println("Hash length is insufficient")
 		return false, errors.New("hash length is insufficient")
 	}
 
@@ -80,8 +82,13 @@ func Verify(password string, hash []byte, opts ...Option) (bool, error) {
 
 	computedHash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
 
+	// Log for debugging
+	log.Printf("Stored Hash: %x", storedHash)
+	log.Printf("Computed Hash: %x", computedHash)
+
 	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
 		return true, nil
 	}
+	log.Println("Password verification failed")
 	return false, nil
 }
