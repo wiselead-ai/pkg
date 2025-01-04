@@ -2,6 +2,7 @@ package passwordutil
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"io"
 
@@ -79,11 +80,8 @@ func Verify(password string, hash []byte, opts ...Option) (bool, error) {
 
 	computedHash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
 
-	// Compare the hashes
-	for i := 0; i < len(storedHash) && i < len(computedHash); i++ {
-		if storedHash[i] != computedHash[i] {
-			return false, nil
-		}
+	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
+		return true, nil
 	}
-	return len(storedHash) == len(computedHash), nil
+	return false, nil
 }
