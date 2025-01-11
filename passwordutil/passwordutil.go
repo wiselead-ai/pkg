@@ -30,11 +30,21 @@ type Option func(*params)
 // WithCustomParams allows customization of hashing parameters
 func WithCustomParams(customParams params) Option {
 	return func(p *params) {
-		p.memory = customParams.memory
-		p.iterations = customParams.iterations
-		p.parallelism = customParams.parallelism
-		p.saltLength = customParams.saltLength
-		p.keyLength = customParams.keyLength
+		if customParams.memory > 0 {
+			p.memory = customParams.memory
+		}
+		if customParams.iterations > 0 {
+			p.iterations = customParams.iterations
+		}
+		if customParams.parallelism > 0 {
+			p.parallelism = customParams.parallelism
+		}
+		if customParams.saltLength > 0 {
+			p.saltLength = customParams.saltLength
+		}
+		if customParams.keyLength > 0 {
+			p.keyLength = customParams.keyLength
+		}
 	}
 }
 
@@ -42,6 +52,10 @@ func Hash(password string, opts ...Option) ([]byte, error) {
 	p := defaultParams
 	for _, opt := range opts {
 		opt(&p)
+	}
+
+	if p.iterations < 1 {
+		p.iterations = 1
 	}
 
 	salt, err := generateRandomBytes(p.saltLength)
