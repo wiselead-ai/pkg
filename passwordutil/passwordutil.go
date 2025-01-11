@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/argon2"
@@ -30,11 +31,21 @@ type Option func(*params)
 // WithCustomParams allows customization of hashing parameters
 func WithCustomParams(customParams params) Option {
 	return func(p *params) {
-		p.memory = customParams.memory
-		p.iterations = customParams.iterations
-		p.parallelism = customParams.parallelism
-		p.saltLength = customParams.saltLength
-		p.keyLength = customParams.keyLength
+		if customParams.memory > 0 {
+			p.memory = customParams.memory
+		}
+		if customParams.iterations > 0 {
+			p.iterations = customParams.iterations
+		}
+		if customParams.parallelism > 0 {
+			p.parallelism = customParams.parallelism
+		}
+		if customParams.saltLength > 0 {
+			p.saltLength = customParams.saltLength
+		}
+		if customParams.keyLength > 0 {
+			p.keyLength = customParams.keyLength
+		}
 	}
 }
 
@@ -44,9 +55,13 @@ func Hash(password string, opts ...Option) ([]byte, error) {
 		opt(&p)
 	}
 
+	if p.iterations < 1 {
+		p.iterations = 1
+	}
+
 	salt, err := generateRandomBytes(p.saltLength)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not generate salt: %w", err)
 	}
 
 	hash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
@@ -59,7 +74,7 @@ func Hash(password string, opts ...Option) ([]byte, error) {
 func generateRandomBytes(n uint32) ([]byte, error) {
 	b := make([]byte, n)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read random bytes: %w", err)
 	}
 	return b, nil
 }
@@ -78,7 +93,14 @@ func Verify(password string, hash []byte, opts ...Option) (bool, error) {
 	salt := hash[:p.saltLength]
 	storedHash := hash[p.saltLength:]
 
-	computedHash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
+	computedHash := argon2.IDKey(
+		[]byte(password),
+		salt,
+		p.iterations,
+		p.memory,
+		p.parallelism,
+		p.keyLength,
+	)
 
 	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
 		return true, nil
