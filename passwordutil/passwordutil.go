@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/argon2"
@@ -60,7 +61,7 @@ func Hash(password string, opts ...Option) ([]byte, error) {
 
 	salt, err := generateRandomBytes(p.saltLength)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not generate salt: %w", err)
 	}
 
 	hash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
@@ -73,7 +74,7 @@ func Hash(password string, opts ...Option) ([]byte, error) {
 func generateRandomBytes(n uint32) ([]byte, error) {
 	b := make([]byte, n)
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read random bytes: %w", err)
 	}
 	return b, nil
 }
@@ -92,7 +93,14 @@ func Verify(password string, hash []byte, opts ...Option) (bool, error) {
 	salt := hash[:p.saltLength]
 	storedHash := hash[p.saltLength:]
 
-	computedHash := argon2.IDKey([]byte(password), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
+	computedHash := argon2.IDKey(
+		[]byte(password),
+		salt,
+		p.iterations,
+		p.memory,
+		p.parallelism,
+		p.keyLength,
+	)
 
 	if subtle.ConstantTimeCompare(storedHash, computedHash) == 1 {
 		return true, nil
